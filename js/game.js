@@ -14,6 +14,10 @@ var player;
 var platforms;
 var cursors;
 var obstacles;
+var score;
+var multiplier = 1;
+var scoreText;
+var gravityDirection = -1;
 
 function create() {
 
@@ -25,6 +29,8 @@ function create() {
 	game.physics.arcade.enable(player);
 	player.body.gravity.y = 1000;
 	player.body.collideWorldBounds = true;
+	player.anchor.setTo(.5, .5);
+	player.scale.x *= -1;
 
 	// Create ground and ceiling
 	platforms = game.add.group();
@@ -43,7 +49,16 @@ function create() {
 	obstacles.enableBody = true;
 	obstacles.createMultiple(20, 'obstacle');
 
-	var timer = game.time.events.loop(750, addObstacle, this);
+	// Create pickups
+	pickups = game.add.group();
+	pickups.enableBody = true;
+
+	// Create score text
+	score = 0;
+	scoreText = game.add.text(20, 40, 'Score: ' + score , {fontSize: '50px', fill: '#000'});
+
+	// Add obstacle every .6 seconds
+	var timer = game.time.events.loop(600, addObstacle, this);
 
 	// Controls
 	cursors = game.input.keyboard.createCursorKeys();
@@ -53,21 +68,37 @@ function create() {
 
 function update() {
 
-    //  LEMME SE YOU FLAP.
-    if (cursors.up.isDown)
-    {
-        player.body.velocity.y = -350;
-    }
-
     game.physics.arcade.overlap(player, platforms, facePlant, null, this);
     game.physics.arcade.overlap(player, obstacles, facePlant, null, this);
+    game.physics.arcade.overlap(player, pickups, invertGravity, null, this);
+    game.physics.arcade.overlap(obstacles, pickups, removePickup, null, this);
 
+    //  LEMME SEE YOU FLAP.
+    if (cursors.up.isDown && gravityDirection == -1)
+    {
+        player.body.velocity.y = -250;
+    } else if (cursors.down.isDown && gravityDirection == 1) 
+    {
+    	player.body.velocity.y = 250;
+    };
+}
+function removePickup (obstacle, pickup) {
+	pickup.kill();
+}
+
+function invertGravity (player, pickup) {
+	player.body.velocity.y = 0;
+	gravityDirection = gravityDirection == 1 ? -1 : 1;
+	player.body.gravity.y = player.body.gravity.y == 1000 ? -1000 : 1000;
+	pickup.kill();
+	multiplier++;
 }
 
 function facePlant (player, platform) {
 	// You have collided with something
 	player.kill()
 	game.add.text(game.world.width /2, game.world.height /2, 'Game over man.', {fontSize: '50px', fill: '#000'});
+	game.paused = true;
 }
 
 function addObstacle () {
@@ -75,6 +106,16 @@ function addObstacle () {
 	var obstacle = obstacles.getFirstDead();
 	var placement = (((Math.random() *2) % 2) + 1);
 	var upOrDown = Math.floor(Math.random()*2) == 1 ? 1 : -1;
+	if(placement > 2){
+		var star = pickups.create(game.world.width, game.world.height / 2, 'star');
+		star.body.velocity.x = -350;
+		star.checkWorldBounds = true;
+		star.outOfBoundsKill = true;
+	}
+	
+	score += (10 * multiplier);
+	scoreText.text = ('Score: ' + score);
+
 
 	obstacle.reset(game.world.width, (game.world.height / placement) * upOrDown);
 	obstacle.body.velocity.x = -350;
